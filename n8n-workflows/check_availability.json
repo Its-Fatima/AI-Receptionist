@@ -1,0 +1,139 @@
+{
+  "name": "check_availability",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "retell-check-availability",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        -80
+      ],
+      "id": "0a23e447-b3f6-4033-9137-edb5ce652563",
+      "name": "Webhook",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YOUR_HEADER_AUTH_CREDENTIAL_ID",
+          "name": "Retell Header Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        672,
+        -80
+      ],
+      "id": "2f795a3b-d2d6-4f98-a85d-1bbee12383cc",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== CONFIG (edit these) =====\nconst TZ = 'Asia/Karachi';  // clinic timezone\nconst OPEN = 9 * 60;               // 9:00 AM\nconst CLOSE = 17 * 60;             // 5:00 PM\nconst SLOT = 30;                   // appointment length in minutes\nconst STEP = 30;                   // gap between offered slots\nconst MAX_ALTERNATIVES = 3;\nconst CLOSED_WEEKDAYS = [0];       // 0 = Sunday\n\n// ===== INPUT =====\nconst body = $('Webhook').first().json.body || {};\nconst args = body.args || body;\nconst reqDate = args.preferred_date;  // YYYY-MM-DD\nconst reqTime = args.preferred_time;  // HH:mm\nconst respond = (obj) => [{ json: obj }];\n\nif (!/^\\d{4}-\\d{2}-\\d{2}$/.test(reqDate || '') || !/^\\d{1,2}:\\d{2}$/.test(reqTime || '')) {\n  return respond({ available: false, reason: 'invalid_input', alternatives: [],\n    message: 'The date or time was not understood. Ask the caller to repeat it.' });\n}\n\n// ===== HELPERS =====\nconst pad = (n) => String(n).padStart(2, '0');\nconst hhmm = (m) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;\nconst spoken = (m) => {\n  const h24 = Math.floor(m / 60), mm = m % 60, h12 = h24 % 12 || 12;\n  return `${h12}${mm ? ':' + pad(mm) : ''} ${h24 < 12 ? 'AM' : 'PM'}`;\n};\nconst fmt = new Intl.DateTimeFormat('en-CA', {\n  timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit',\n  hour: '2-digit', minute: '2-digit', hourCycle: 'h23',\n});\nconst localParts = (d) => {\n  const p = Object.fromEntries(fmt.formatToParts(d).map((x) => [x.type, x.value]));\n  return { date: `${p.year}-${p.month}-${p.day}`, mins: parseInt(p.hour) * 60 + parseInt(p.minute) };\n};\n\nconst now = localParts(new Date());\nconst [rh, rm] = reqTime.split(':').map(Number);\nconst reqStart = rh * 60 + rm;\nconst weekday = new Date(`${reqDate}T12:00:00Z`).getUTCDay();\n\n// ===== DAY-LEVEL RULES =====\nif (reqDate < now.date) {\n  return respond({ available: false, reason: 'past_date', alternatives: [],\n    message: 'That date has already passed. Ask for a future date.' });\n}\nif (CLOSED_WEEKDAYS.includes(weekday)) {\n  return respond({ available: false, reason: 'closed_day', alternatives: [],\n    message: 'The clinic is closed on that day. Offer the next open day.' });\n}\nif (reqDate === now.date && now.mins >= CLOSE) {\n  return respond({ available: false, reason: 'closed_for_today', alternatives: [],\n    message: 'The clinic is closed for today. Offer tomorrow or another day.' });\n}\n\n// ===== BUSY INTERVALS FOR THAT DAY (clinic-local minutes) =====\nconst busy = [];\nfor (const item of $input.all()) {\n  const e = item.json;\n  if (!e || !e.start) continue;  // empty item from \"Always Output Data\"\n  if (e.status === 'cancelled' || e.transparency === 'transparent') continue;\n\n  if (e.start.date && !e.start.dateTime) {  // all-day event blocks the whole day\n    if (e.start.date <= reqDate && reqDate < e.end.date) busy.push([0, 1440]);\n    continue;\n  }\n  const sRaw = e.start.dateTime ?? (typeof e.start === 'string' ? e.start : null);\n  const eRaw = e.end?.dateTime ?? (typeof e.end === 'string' ? e.end : null);\n  if (!sRaw || !eRaw) continue;\n\n  const s = localParts(new Date(sRaw));\n  const en = localParts(new Date(eRaw));\n  if (en.date < reqDate || s.date > reqDate) continue;\n  busy.push([s.date < reqDate ? 0 : s.mins, en.date > reqDate ? 1440 : en.mins]);\n}\n\nconst isFree = (s) => !busy.some(([bs, be]) => bs < s + SLOT && be > s);\nconst notPast = (s) => reqDate !== now.date || s > now.mins;\n\n// ===== REQUESTED SLOT =====\nconst inHours = reqStart >= OPEN && reqStart + SLOT <= CLOSE;\nconst available = inHours && notPast(reqStart) && isFree(reqStart);\n\n// ===== NEAREST FREE ALTERNATIVES =====\nconst grid = [];\nfor (let s = OPEN; s + SLOT <= CLOSE; s += STEP) {\n  if (s !== reqStart && notPast(s) && isFree(s)) grid.push(s);\n}\nconst alternatives = available ? [] : grid\n  .sort((a, b) => Math.abs(a - reqStart) - Math.abs(b - reqStart))\n  .slice(0, MAX_ALTERNATIVES)\n  .sort((a, b) => a - b)\n  .map((s) => ({ time: hhmm(s), spoken: spoken(s) }));\n\nlet reason = 'ok';\nlet message = 'The requested slot is free. Continue with the booking.';\nif (!available) {\n  reason = !inHours ? 'outside_hours' : !notPast(reqStart) ? 'time_passed' : 'slot_taken';\n  message = alternatives.length\n    ? 'The requested time is not available. Offer these alternative times on the same day.'\n    : 'No free times are left on this day. Ask the caller for a different day.';\n}\n\nreturn respond({ available, reason, requested: { date: reqDate, time: reqTime }, alternatives, message });"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        -80
+      ],
+      "id": "ef865229-6815-48a0-a785-5a66d01d3cca",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_CALENDAR_ID@group.calendar.google.com",
+          "mode": "list",
+          "cachedResultName": "YOUR_CALENDAR_NAME"
+        },
+        "returnAll": true,
+        "timeMin": "={{ DateTime.fromISO($('Webhook').first().json.body.args.preferred_date, { zone: 'Asia/Karachi' }).minus({ days: 1 }).toISO() }}",
+        "timeMax": "={{ DateTime.fromISO($('Webhook').first().json.body.args.preferred_date, { zone: 'Asia/Karachi' }).plus({ days: 2 }).toISO() }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        224,
+        -80
+      ],
+      "id": "402d2c9e-83ee-484b-88e8-65f7254dac7f",
+      "name": "Get many events",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "YOUR_GOOGLE_CALENDAR_CREDENTIAL_ID",
+          "name": "Google Calendar account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get many events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many events": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "timezone": "Asia/Karachi",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "nodeGroups": [],
+  "tags": [
+    {
+      "name": "retell"
+    }
+  ]
+}

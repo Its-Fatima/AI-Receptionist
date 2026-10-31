@@ -1,0 +1,23 @@
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials*.json
+service-account*.json
+
+# n8n / Retell exports with real data (keep sanitized versions only)
+*.raw.json
+*_export_*.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Large demo originals (host videos on YouTube/Loom instead)
+demo/*.mov
+demo/*.mkv
+demo/raw/

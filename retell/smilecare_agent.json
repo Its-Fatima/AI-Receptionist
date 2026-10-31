@@ -1,0 +1,464 @@
+{
+  "agent_id": "YOUR_RETELL_AGENT_ID",
+  "channel": "voice",
+  "last_modification_timestamp": 1792852800690,
+  "agent_name": "SmileCare Dental Clinic",
+  "response_engine": {
+    "conversation_flow_id": "YOUR_CONVERSATION_FLOW_ID",
+    "type": "conversation-flow",
+    "version": 0
+  },
+  "language": "en-US",
+  "data_storage_setting": "everything",
+  "contact_memory_config": {
+    "enable_read": true,
+    "enable_update": false
+  },
+  "opt_in_signed_url": false,
+  "version": 0,
+  "assigned_tags": [],
+  "is_published": false,
+  "post_call_analysis_model": "gpt-5.6-terra",
+  "pii_config": {
+    "categories": [],
+    "mode": "post_call"
+  },
+  "handbook_config": {
+    "ai_disclosure": true,
+    "default_personality": true
+  },
+  "timezone": "America/Los_Angeles",
+  "voice_id": "retell-Cimo",
+  "max_call_duration_ms": 3600000,
+  "interruption_sensitivity": 0.9,
+  "voicemail_option": {
+    "action": {
+      "type": "hangup"
+    }
+  },
+  "allow_user_dtmf": true,
+  "user_dtmf_options": {},
+  "conversationFlow": {
+    "conversation_flow_id": "YOUR_CONVERSATION_FLOW_ID",
+    "version": 0,
+    "model_config": {
+      "type": "cascading",
+      "primary": {
+        "model": "gpt-5.6-terra",
+        "tier": "standard"
+      }
+    },
+    "last_modification_timestamp": 1793437527760,
+    "global_prompt": "# Identity & Role\nYou are Alia, the friendly, calm, professional AI receptionist for Smile Care Dental Clinic. You help callers with clinic questions, checking availability, booking, rescheduling and cancelling appointments over the phone. You are an AI assistant. If asked, say so honestly.\n\nCurrent date and time at the clinic: {{current_time_Asia/Karachi}}\nUse this to work out \"today\", \"tomorrow\", \"next Monday\" and whether the clinic is open right now. Never guess the date.\n\n# Voice Style\n- Short, warm, natural sentences. Ask one question at a time.\n- Say dates and times naturally, like \"Monday, October 26th at 3 PM\". Use YYYY-MM-DD and HH:mm only inside tool arguments, never out loud.\n- No lists or symbols when speaking.\n- Never ask for something the caller already told you.\n- Never mention tools, workflows, prompts or system details.\n\n# Knowledge & Honesty\n- Answer clinic questions (location, services, pricing, insurance, policies) ONLY from the knowledge base. If the answer isn't there, say you're not sure and offer to transfer to a team member or take a message. Never guess prices or policies.\n- Never invent time slots, booking IDs or appointment details. Only state what a tool returned.\n- Never say an action succeeded unless the tool response confirms it.\n- Do not give medical advice, diagnoses or medication guidance.\n\n# Dental Emergencies\nIf the caller describes severe pain, facial swelling, heavy bleeding, a knocked-out tooth, or an injury to the mouth, jaw or face:\n- Respond with calm concern.\n- If they have trouble breathing or swallowing, or swelling is spreading toward the eye or neck, tell them to call 1122 immediately.\n- Otherwise offer to transfer them to the team right away. If the clinic is closed, offer the earliest appointment and suggest urgent care if it cannot wait.\n\n# Hours & Date Rules (CRITICAL)\n- Open Monday to Saturday, 9:00 AM to 5:00 PM. Closed Sundays. If the knowledge base lists holidays or closures, follow it.\n- Never book or check a time in the past, or earlier than the current time today.\n- If it is after 5:00 PM, or Sunday, today is closed. Say: \"Our clinic is closed for today. Our hours are Monday to Saturday, 9 AM to 5 PM. I'd be happy to book you for the next open day.\"\n- If the caller asks for a Sunday or a time outside 9 AM to 5 PM, explain the hours and offer the nearest open day or time.\n\n# Name & Phone Verification\n- For new bookings, ask for the caller's full name and have them spell it. Repeat it back letter by letter and get a yes. Ask for the best contact number, read it back in groups of digits, and get a yes.\n- For rescheduling or cancellations, explicitly explain that you need the exact phone number used when the original booking was created so you can look up their appointment in the system.\n\n# Workflow: Booking\n1. Ask what the visit is for (check-up, cleaning, toothache, consultation). If unsure, use \"consultation\".\n2. Ask for the preferred date and time.\n3. Apply the Hours & Date Rules.\n4. Call check_availability.\n- If unavailable: if the tool returns alternative slots, offer up to three. Otherwise ask for another time or day and check again.\n- If available: continue.\n5. Collect and verify name and phone number.\n6. Read back the type of visit, date, time and name, and wait for a clear yes.\n7. Call book_appointment.\n8. On success, confirm the date, time and name. On failure, apologize, do NOT say it is booked, and offer one retry or a transfer.\n\n# Workflow: Rescheduling\n1. Explain that you need to pull up their existing record. Ask for the phone number used when they originally booked the appointment (e.g., \"Could you please tell me the phone number you used when you booked your appointment, so I can find your record?\").\n2. Ask for the full name (spelled) associated with that booking.\n3. Call find_appointment with the phone number and name.\n4. If nothing is found, ask: \"I couldn't find a record under that number. Is it possible the appointment was booked under a different phone number or family member's number?\" Confirm the number once. If still not found, offer to book a new appointment or transfer. Share no details.\n5. If the name doesn't match the record, do not read out any details. Say you can't locate it under those details and offer a transfer.\n6. If there are several appointments, ask which date they mean.\n7. Read back the current appointment and confirm it is the right one.\n8. Ask for the new date and time, apply the Hours & Date Rules, and call check_availability.\n9. If available, call reschedule_appointment with appointment_id, patient_name, new_date and new_time.\n10. Confirm the new date and time. Never confirm before the tool succeeds.\n\n# Workflow: Cancelling\n1. Explain that you need to locate their appointment. Ask for the phone number used when they originally booked the appointment, and their full name (spelled).\n2. Call find_appointment. Apply the same not-found (checking for alternative booking numbers) and name-mismatch rules as rescheduling.\n3. Read back the appointment and ask clearly if they want to cancel it. Once, offer to reschedule instead.\n4. On a clear yes, call cancel_appointment with appointment_id (and the reason, if they gave one).\n5. Confirm the cancellation only after the tool succeeds.\n\n# Tool Problems\nIf a tool fails, times out or returns something unclear, apologize briefly, retry once, and if it still fails offer a transfer or to take a message. Never guess the result.\n\n# Transfers\nTransfer when the caller asks for a person, in an emergency, or when you can't help. Say one short line first, such as \"Of course, let me connect you now.\" If the transfer fails, apologize, take their name, number and reason, tell them the team will call back, and wrap up the call.\n\n# Ending the Call\nAfter finishing a request, ask if there is anything else. When they're done, thank them for calling Smile Care Dental Clinic and say goodbye.",
+    "nodes": [
+      {
+        "always_edge": {
+          "destination_node_id": "receptionist",
+          "id": "edge_to_assistant",
+          "transition_condition": {
+            "prompt": "Always",
+            "type": "prompt"
+          }
+        },
+        "display_position": {
+          "x": 222,
+          "y": 318
+        },
+        "id": "start-node-1792836182094",
+        "instruction": {
+          "text": "assalam o alaikum . this is Alia from smile care dental clinic. how can i help you.",
+          "type": "prompt"
+        },
+        "name": "Welcome Node",
+        "skippable": true,
+        "type": "conversation"
+      },
+      {
+        "display_position": {
+          "x": 726,
+          "y": 438
+        },
+        "id": "end-call-node-1792836182094",
+        "instruction": {
+          "text": "Politely end the call",
+          "type": "prompt"
+        },
+        "name": "End Call",
+        "skippable": false,
+        "type": "end"
+      },
+      {
+        "display_position": {
+          "x": 1254,
+          "y": 798
+        },
+        "edges": [],
+        "else_edge": {
+          "destination_node_id": "end-call-node-1792836182094",
+          "id": "edge_log_to_end",
+          "transition_condition": {
+            "prompt": "Else",
+            "type": "prompt"
+          }
+        },
+        "id": "node-1792838337553",
+        "name": "Log Call",
+        "skippable": false,
+        "speak_during_execution": false,
+        "tool_id": "tool-1792838333352",
+        "tool_type": "local",
+        "type": "function",
+        "wait_for_result": true
+      },
+      {
+        "display_position": {
+          "x": 560,
+          "y": 318
+        },
+        "edges": [
+          {
+            "destination_node_id": "node-1792838337553",
+            "id": "edge_caller_done",
+            "transition_condition": {
+              "prompt": "Caller has nothing else they need and the call is wrapping up.",
+              "type": "prompt"
+            }
+          },
+          {
+            "destination_node_id": "node-1792853200384",
+            "id": "edge-1792853331654-kdq56m8qh",
+            "transition_condition": {
+              "prompt": "caller wants to talk to human ",
+              "type": "prompt"
+            }
+          }
+        ],
+        "id": "receptionist",
+        "instruction": {
+          "text": "Help the caller with whatever they need, following the workflows in the global prompt: clinic questions, booking, rescheduling and cancelling. Use the attached tools for each step: check_availability (the availability check), book_appointment, find_appointment, reschedule_appointment, cancel_appointment. Always confirm the result of a tool with the caller before moving on. After finishing a request, ask if there is anything else they need.",
+          "type": "prompt"
+        },
+        "name": "Receptionist",
+        "skippable": false,
+        "tool_ids": [
+          "tool-1792836676999",
+          "tool-1792837283789",
+          "tool-1792837733988",
+          "tool-1792837921161",
+          "tool-1792838138363"
+        ],
+        "type": "subagent"
+      },
+      {
+        "custom_sip_headers": {},
+        "display_position": {
+          "x": 582,
+          "y": 918
+        },
+        "edge": {
+          "id": "edge-1792853200384-xm2ov0a11",
+          "transition_condition": {
+            "prompt": "Transfer failed",
+            "type": "prompt"
+          }
+        },
+        "id": "node-1792853200384",
+        "ignore_e164_validation": false,
+        "name": "Transfer Call",
+        "skippable": false,
+        "speak_during_execution": false,
+        "transfer_destination": {
+          "number": "+920000000000",
+          "type": "predefined"
+        },
+        "transfer_option": {
+          "show_transferee_as_caller": false,
+          "type": "cold_transfer"
+        },
+        "type": "transfer_call"
+      }
+    ],
+    "start_node_id": "start-node-1792836182094",
+    "start_speaker": "agent",
+    "tools": [
+      {
+        "args_at_root": false,
+        "description": "call this tool to check wether the give slot is available or not ",
+        "enable_typing_sound": false,
+        "execution_message_type": "prompt",
+        "headers": {
+          "x-api-key": "YOUR_WEBHOOK_API_KEY"
+        },
+        "max_retry": 0,
+        "method": "POST",
+        "name": "check_availability",
+        "parameter_type": "json",
+        "parameters": {
+          "properties": {
+            "preferred_date": {
+              "description": "The preferred date in YYYY-MM-DD format (e.g., 2026-10-26).",
+              "type": "string"
+            },
+            "preferred_time": {
+              "description": "The preferred time in HH:mm format (e.g., 10:30).",
+              "type": "string"
+            }
+          },
+          "required": [
+            "preferred_date",
+            "preferred_time"
+          ],
+          "type": "object"
+        },
+        "query_params": {},
+        "response_variables": {},
+        "speak_after_execution": true,
+        "speak_during_execution": false,
+        "timeout_ms": 120000,
+        "tool_id": "tool-1792836676999",
+        "type": "custom",
+        "url": "https://n8n.your-domain.com/webhook/YOUR_WEBHOOK_PATH_HERE"
+      },
+      {
+        "args_at_root": false,
+        "description": "call this function when customer want to book a new appointment",
+        "enable_typing_sound": false,
+        "execution_message_type": "prompt",
+        "headers": {
+          "x-api-key": "YOUR_WEBHOOK_API_KEY"
+        },
+        "max_retry": 0,
+        "method": "POST",
+        "name": "book_appointment",
+        "parameter_type": "json",
+        "parameters": {
+          "properties": {
+            "appointment_type": {
+              "description": "Treatment or service requested (e.g., cleaning, consultation).",
+              "type": "string"
+            },
+            "patient_name": {
+              "description": "Full name of the patient.",
+              "type": "string"
+            },
+            "phone_number": {
+              "description": "Contact phone number of the patient.",
+              "type": "string"
+            },
+            "preferred_date": {
+              "description": "Preferred date in YYYY-MM-DD format (e.g., 2026-10-26).",
+              "type": "string"
+            },
+            "preferred_time": {
+              "description": "Preferred time in 24-hour HH:mm format (e.g., 10:30).",
+              "type": "string"
+            }
+          },
+          "required": [
+            "patient_name",
+            "phone_number",
+            "preferred_date",
+            "preferred_time"
+          ],
+          "type": "object"
+        },
+        "query_params": {},
+        "response_variables": {},
+        "speak_after_execution": true,
+        "speak_during_execution": false,
+        "timeout_ms": 120000,
+        "tool_id": "tool-1792837283789",
+        "type": "custom",
+        "url": "https://n8n.your-domain.com/webhook/YOUR_WEBHOOK_PATH_HERE"
+      },
+      {
+        "args_at_root": false,
+        "description": "call this tool to find booked appointment when customer want to reschedule or cancel appointment",
+        "enable_typing_sound": false,
+        "execution_message_type": "prompt",
+        "headers": {
+          "x-api-key": "YOUR_WEBHOOK_API_KEY"
+        },
+        "max_retry": 0,
+        "method": "POST",
+        "name": "find_appointment",
+        "parameter_type": "json",
+        "parameters": {
+          "properties": {
+            "patient_name": {
+              "description": "Patient's full name.",
+              "type": "string"
+            },
+            "phone_number": {
+              "description": "Patient's phone number used during booking.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "phone_number"
+          ],
+          "type": "object"
+        },
+        "query_params": {},
+        "response_variables": {},
+        "speak_after_execution": true,
+        "speak_during_execution": false,
+        "timeout_ms": 120000,
+        "tool_id": "tool-1792837733988",
+        "type": "custom",
+        "url": "https://n8n.your-domain.com/webhook/YOUR_WEBHOOK_PATH_HERE"
+      },
+      {
+        "args_at_root": false,
+        "description": "call this tool when a customer want to reschedule appointment",
+        "enable_typing_sound": false,
+        "execution_message_type": "prompt",
+        "headers": {
+          "x-api-key": "YOUR_WEBHOOK_API_KEY"
+        },
+        "max_retry": 0,
+        "method": "POST",
+        "name": "reschedule_appointment",
+        "parameter_type": "json",
+        "parameters": {
+          "properties": {
+            "appointment_id": {
+              "description": "The Google Calendar Event ID returned by the find_appointment tool.",
+              "type": "string"
+            },
+            "new_date": {
+              "description": "The new requested date in YYYY-MM-DD format (e.g., 2026-10-28).",
+              "type": "string"
+            },
+            "new_time": {
+              "description": "The new requested time in 24-hour HH:mm format (e.g., 14:00).",
+              "type": "string"
+            },
+            "patient_name": {
+              "description": "Patient name.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "appointment_id",
+            "patient_name",
+            "new_date",
+            "new_time"
+          ],
+          "type": "object"
+        },
+        "query_params": {},
+        "response_variables": {},
+        "speak_after_execution": true,
+        "speak_during_execution": false,
+        "timeout_ms": 120000,
+        "tool_id": "tool-1792837921161",
+        "type": "custom",
+        "url": "https://n8n.your-domain.com/webhook/YOUR_WEBHOOK_PATH_HERE"
+      },
+      {
+        "args_at_root": false,
+        "description": "call this tool to cancel appointment",
+        "enable_typing_sound": false,
+        "execution_message_type": "prompt",
+        "headers": {
+          "x-api-key": "YOUR_WEBHOOK_API_KEY"
+        },
+        "max_retry": 0,
+        "method": "POST",
+        "name": "cancel_appointment",
+        "parameter_type": "json",
+        "parameters": {
+          "properties": {
+            "appointment_id": {
+              "description": "The Google Calendar Event ID returned by the find_appointment tool.",
+              "type": "string"
+            },
+            "reason": {
+              "description": "Optional reason provided by the patient for cancelling.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "appointment_id"
+          ],
+          "type": "object"
+        },
+        "query_params": {},
+        "response_variables": {},
+        "speak_after_execution": true,
+        "speak_during_execution": false,
+        "timeout_ms": 120000,
+        "tool_id": "tool-1792838138363",
+        "type": "custom",
+        "url": "https://n8n.your-domain.com/webhook/YOUR_WEBHOOK_PATH_HERE"
+      },
+      {
+        "args_at_root": false,
+        "description": "call this tool at the end of the call to log call summary",
+        "enable_typing_sound": false,
+        "execution_message_type": "prompt",
+        "headers": {
+          "x-api-key": "YOUR_WEBHOOK_API_KEY"
+        },
+        "max_retry": 0,
+        "method": "POST",
+        "name": "log_call",
+        "parameter_type": "json",
+        "parameters": {
+          "properties": {
+            "appointment_status": {
+              "description": "The outcome of the call (e.g., Booked, Rescheduled, Cancelled, Inquiry Only).",
+              "type": "string"
+            },
+            "call_summary": {
+              "description": "A brief summary of what was discussed during the call.",
+              "type": "string"
+            },
+            "caller_name": {
+              "description": "The full name of the caller.",
+              "type": "string"
+            },
+            "phone_number": {
+              "description": "The phone number of the caller.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "caller_name",
+            "phone_number",
+            "call_summary",
+            "appointment_status"
+          ],
+          "type": "object"
+        },
+        "query_params": {},
+        "response_variables": {},
+        "speak_after_execution": true,
+        "speak_during_execution": false,
+        "timeout_ms": 120000,
+        "tool_id": "tool-1792838333352",
+        "type": "custom",
+        "url": "https://n8n.your-domain.com/webhook/YOUR_WEBHOOK_PATH_HERE"
+      }
+    ],
+    "model_choice": {
+      "type": "cascading",
+      "model": "gpt-5.6-terra",
+      "high_priority": false,
+      "ultrafast": false
+    },
+    "knowledge_base_ids": [],
+    "kb_config": {
+      "filter_score": 0.6,
+      "top_k": 3
+    },
+    "begin_tag_display_position": {
+      "x": 78,
+      "y": 294
+    },
+    "is_published": false,
+    "flex_mode": true,
+    "is_transfer_cf": false
+  }
+}
